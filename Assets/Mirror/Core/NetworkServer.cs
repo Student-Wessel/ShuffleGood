@@ -147,7 +147,7 @@ namespace Mirror
                 if (!identity.isClient)
                 {
                     // Debug.Log($"ActivateHostScene {identity.netId} {identity}");
-                    identity.OnStartClient();
+                    NetworkClient.CheckForStartClient(identity);
                 }
             }
         }
@@ -380,7 +380,7 @@ namespace Mirror
             where T : struct, NetworkMessage
         {
             // Debug.Log($"Server.SendToObservers {typeof(T)}");
-            if (identity == null || identity.observers == null || identity.observers.Count == 0)
+            if (identity == null || identity.observers.Count == 0)
                 return;
 
             using (NetworkWriterPooled writer = NetworkWriterPool.Get())
@@ -399,12 +399,12 @@ namespace Mirror
         }
 
         /// <summary>Send a message to only clients which are ready with option to include the owner of the object identity</summary>
-        // TODO put rpcs into NetworkServer.Update WorldState packet, then finally remove SendToReady!
+        // TODO obsolete this later. it's not used anymore
         public static void SendToReadyObservers<T>(NetworkIdentity identity, T message, bool includeOwner = true, int channelId = Channels.Reliable)
             where T : struct, NetworkMessage
         {
             // Debug.Log($"Server.SendToReady {typeof(T)}");
-            if (identity == null || identity.observers == null || identity.observers.Count == 0)
+            if (identity == null || identity.observers.Count == 0)
                 return;
 
             using (NetworkWriterPooled writer = NetworkWriterPool.Get())
@@ -414,7 +414,7 @@ namespace Mirror
                 ArraySegment<byte> segment = writer.ToArraySegment();
 
                 int count = 0;
-                foreach (NetworkConnection conn in identity.observers.Values)
+                foreach (NetworkConnectionToClient conn in identity.observers.Values)
                 {
                     bool isOwner = conn == identity.connectionToClient;
                     if ((!isOwner || includeOwner) && conn.isReady)
@@ -429,7 +429,7 @@ namespace Mirror
         }
 
         /// <summary>Send a message to only clients which are ready including the owner of the NetworkIdentity</summary>
-        // TODO put rpcs into NetworkServer.Update WorldState packet, then finally remove SendToReady!
+        // TODO obsolete this later. it's not used anymore
         public static void SendToReadyObservers<T>(NetworkIdentity identity, T message, int channelId)
             where T : struct, NetworkMessage
         {
@@ -1182,7 +1182,22 @@ namespace Mirror
             if (ownerConnection is LocalConnectionToClient)
                 identity.isOwned = true;
 
-            identity.OnStartServer();
+            // only call OnStartServer if not spawned yet.
+            // check used to be in NetworkIdentity. may not be necessary anymore.
+            if (!identity.isServer && identity.netId == 0)
+            {
+                // configure NetworkIdentity
+                identity.isLocalPlayer = NetworkClient.localPlayer == identity;
+                identity.isClient = NetworkClient.active;
+                identity.isServer = true;
+                identity.netId = NetworkIdentity.GetNextNetworkId();
+
+                // add to spawned (after assigning netId)
+                spawned[identity.netId] = identity;
+
+                // callback after all fields were set
+                identity.OnStartServer();
+            }
 
             // Debug.Log($"SpawnObject instance ID {identity.netId} asset ID {identity.assetId}");
 
@@ -1651,10 +1666,6 @@ namespace Mirror
         // both worlds without any worrying now!
         public static void RebuildObservers(NetworkIdentity identity, bool initialize)
         {
-            // observers are null until OnStartServer creates them
-            if (identity.observers == null)
-                return;
-
             // if there is no interest management system,
             // or if 'force shown' then add all connections
             if (aoi == null || identity.visible == Visibility.ForceShown)
@@ -1670,7 +1681,7 @@ namespace Mirror
 
         // broadcasting ////////////////////////////////////////////////////////
         // helper function to get the right serialization for a connection
-        static NetworkWriter GetEntitySerializationForConnection(NetworkIdentity identity, NetworkConnectionToClient connection)
+        static NetworkWriter SerializeForConnection(NetworkIdentity identity, NetworkConnectionToClient connection)
         {
             // get serialization for this entity (cached)
             // IMPORTANT: int tick avoids floating point inaccuracy over days/weeks
@@ -1713,7 +1724,7 @@ namespace Mirror
                 {
                     // get serialization for this entity viewed by this connection
                     // (if anything was serialized this time)
-                    NetworkWriter serialization = GetEntitySerializationForConnection(identity, connection);
+                    NetworkWriter serialization = SerializeForConnection(identity, connection);
                     if (serialization != null)
                     {
                         EntityStateMessage message = new EntityStateMessage
@@ -1868,13 +1879,15 @@ namespace Mirror
             if (active)
             {
                 ++actualTickRateCounter;
-                if (Time.timeAsDouble >= actualTickRateStart + 1)
+
+                // NetworkTime.localTime has defines for 2019 / 2020 compatibility
+                if (NetworkTime.localTime >= actualTickRateStart + 1)
                 {
                     // calculate avg by exact elapsed time.
                     // assuming 1s wouldn't be accurate, usually a few more ms passed.
-                    float elapsed         = (float)(Time.timeAsDouble - actualTickRateStart);
-                    actualTickRate        = Mathf.RoundToInt(actualTickRateCounter / elapsed);
-                    actualTickRateStart   = Time.timeAsDouble;
+                    float elapsed = (float)(NetworkTime.localTime - actualTickRateStart);
+                    actualTickRate = Mathf.RoundToInt(actualTickRateCounter / elapsed);
+                    actualTickRateStart = NetworkTime.localTime;
                     actualTickRateCounter = 0;
                 }
 

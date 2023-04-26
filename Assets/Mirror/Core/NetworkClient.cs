@@ -118,6 +118,12 @@ namespace Mirror
         // initialization //////////////////////////////////////////////////////
         static void AddTransportHandlers()
         {
+            // community Transports may forget to call OnDisconnected.
+            // which could cause handlers to be added twice with +=.
+            // ensure we always clear the old ones first.
+            // fixes: https://github.com/vis2k/Mirror/issues/3152
+            RemoveTransportHandlers();
+
             // += so that other systems can also hook into it (i.e. statistics)
             Transport.active.OnClientConnected    += OnTransportConnected;
             Transport.active.OnClientDataReceived += OnTransportData;
@@ -166,7 +172,7 @@ namespace Mirror
             // These handlers are the same for host and remote clients
             RegisterHandler<TimeSnapshotMessage>(OnTimeSnapshotMessage);
             RegisterHandler<ChangeOwnerMessage>(OnChangeOwner);
-            RegisterHandler<RpcMessage>(OnRPCMessage);
+            RegisterHandler<RpcBufferMessage>(OnRPCBufferMessage);
         }
 
         // connect /////////////////////////////////////////////////////////////
@@ -1060,7 +1066,7 @@ namespace Mirror
             if (isSpawnFinished)
             {
                 identity.NotifyAuthority();
-                identity.OnStartClient();
+                CheckForStartClient(identity);
                 CheckForLocalPlayer(identity);
             }
         }
@@ -1213,7 +1219,7 @@ namespace Mirror
             foreach (NetworkIdentity identity in spawned.Values.OrderBy(uv => uv.netId))
             {
                 identity.NotifyAuthority();
-                identity.OnStartClient();
+                CheckForStartClient(identity);
                 CheckForLocalPlayer(identity);
             }
             isSpawnFinished = true;
@@ -1281,7 +1287,7 @@ namespace Mirror
 
                 identity.isOwned = message.isOwner;
                 identity.NotifyAuthority();
-                identity.OnStartClient();
+                CheckForStartClient(identity);
 
                 if (aoi != null)
                     aoi.SetHostVisibility(identity, true);
@@ -1311,6 +1317,21 @@ namespace Mirror
                     identity.HandleRemoteCall(message.componentIndex, message.functionHash, RemoteCallType.ClientRpc, reader);
             }
             // Rpcs often can't be applied if interest management unspawned them
+        }
+
+        static void OnRPCBufferMessage(RpcBufferMessage message)
+        {
+            // Debug.Log($"NetworkClient.OnRPCBufferMessage of {message.payload.Count} bytes");
+            // parse all rpc messages from the buffer
+            using (NetworkReaderPooled reader = NetworkReaderPool.Get(message.payload))
+            {
+                while (reader.Remaining > 0)
+                {
+                    // read message without header
+                    RpcMessage rpcMessage = reader.Read<RpcMessage>();
+                    OnRPCMessage(rpcMessage);
+                }
+            }
         }
 
         static void OnObjectHide(ObjectHideMessage message) => DestroyObject(message.netId);
@@ -1370,6 +1391,17 @@ namespace Mirror
             CheckForLocalPlayer(identity);
         }
 
+        // OnStartClient used to initialize isClient / isLocalPlayer.
+        // it's cleaner to do this from NetworkClient.
+        internal static void CheckForStartClient(NetworkIdentity identity)
+        {
+            // OnStartLocalPlayer is called after OnStartClient.
+            // but we want the flag to be set in OnStartClient already.
+            identity.isLocalPlayer = localPlayer == identity;
+            identity.isClient = true;
+            identity.OnStartClient();
+        }
+
         internal static void CheckForLocalPlayer(NetworkIdentity identity)
         {
             if (identity == localPlayer)
@@ -1377,6 +1409,10 @@ namespace Mirror
                 // Set isLocalPlayer to true on this NetworkIdentity and trigger
                 // OnStartLocalPlayer in all scripts on the same GO
                 identity.connectionToServer = connection;
+
+                // isLocalPlayer is already set by CheckForStartPlayer.
+                // however, let's simply move it out of OnStartLocalPlayer for now.
+                identity.isLocalPlayer = true;
                 identity.OnStartLocalPlayer();
                 // Debug.Log($"NetworkClient.OnOwnerMessage player:{identity.name}");
             }

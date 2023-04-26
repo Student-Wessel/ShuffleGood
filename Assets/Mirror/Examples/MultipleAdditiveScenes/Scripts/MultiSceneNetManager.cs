@@ -10,7 +10,6 @@ using UnityEngine.SceneManagement;
 
 namespace Mirror.Examples.MultipleAdditiveScenes
 {
-    [AddComponentMenu("")]
     public class MultiSceneNetManager : NetworkManager
     {
         [Header("Spawner Setup")]

@@ -3,7 +3,11 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Puck
+  - Pucks
+  - TopPuckSelector
+  - BottomPuckSelector
   layers:
   - Default
   - TransparentFX
@@ -13,18 +17,18 @@ TagManager:
   - UI
   - 
   - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Player
+  - Portal
+  - GameScene_1
+  - GameScene_2
+  - GameScene_3
+  - GameScene_4
+  - GameScene_5
+  - GameScene_6
+  - GameScene_7
+  - GameScene_8
+  - GameScene_9
+  - GameScene_10
   - 
   - 
   - 

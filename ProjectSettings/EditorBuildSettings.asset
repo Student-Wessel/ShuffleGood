@@ -4,5 +4,25 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
-  m_configObjects: {}
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/ShuffleMainScene.unity
+    guid: d9b3044d340354a48bfa88f835738a60
+  - enabled: 1
+    path: Assets/Scenes/ShuffleGameScene.unity
+    guid: a95e6e5f4ca377540b3061140c213f43
+  - enabled: 0
+    path: Assets/Mirror/Examples/MultipleAdditiveScenes/Scenes/Main.unity
+    guid: 0fa8b7965660de64f8aefd6b64f18a08
+  - enabled: 0
+    path: Assets/Mirror/Examples/MultipleAdditiveScenes/Scenes/Game.unity
+    guid: d45ed07e5475d4740812c97ae565255c
+  m_configObjects:
+    com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: 10b768213ac6fcf4280d548862a78dc7,
+      type: 2}
+    com.unity.adaptiveperformance.samsung.android.provider_settings: {fileID: 11400000,
+      guid: 681fd3b8bca5f7a4097559925ae9bc1b, type: 2}
+    com.unity.adaptiveperformance.simulator.provider_settings: {fileID: 11400000,
+      guid: 3f5b22f3c0aed2247b845d9c028f5c35, type: 2}
+    com.unity.input.settings: {fileID: 11400000, guid: 700a86cb92bc41a46bdd159e744e77b8,
+      type: 2}

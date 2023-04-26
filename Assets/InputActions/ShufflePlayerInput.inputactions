@@ -1,0 +1,76 @@
+{
+    "name": "ShufflePlayerInput",
+    "maps": [
+        {
+            "name": "Ingame",
+            "id": "ffce703b-a9f5-43ed-bfa6-61bcdaf237c0",
+            "actions": [
+                {
+                    "name": "ScreenPoint",
+                    "type": "Value",
+                    "id": "ff24e6a0-4001-45ac-b935-d01a2eea368c",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "ScreenPress",
+                    "type": "Button",
+                    "id": "bf0f8bc9-c986-4dd5-ac08-603c2c260993",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "fe2072f3-1a1f-4e8c-8105-1eb77dd2c3ab",
+                    "path": "<Mouse>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScreenPoint",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "988469e9-b885-44ff-8765-a5950724c858",
+                    "path": "<Touchscreen>/primaryTouch/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScreenPoint",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2fcdf9ac-21e0-4faa-8e5c-b60bb871c1df",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScreenPress",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "56b88363-8662-4cc9-9a3b-f4bdcf68903d",
+                    "path": "<Touchscreen>/Press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScreenPress",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

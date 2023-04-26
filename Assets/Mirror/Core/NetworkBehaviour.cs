@@ -150,6 +150,12 @@ namespace Mirror
                 syncVarHookGuard &= ~dirtyBit;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        void SetSyncObjectDirtyBit(ulong dirtyBit)
+        {
+            syncObjectDirtyBits |= dirtyBit;
+        }
+
         /// <summary>Set as dirty so that it's synced to clients again.</summary>
         // these are masks, not bit numbers, ie. 110011b not '2' for 2nd bit.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -163,6 +169,10 @@ namespace Mirror
         // simply reuse SetSyncVarDirtyBit for now.
         // instead of adding another field.
         // syncVarDirtyBits does trigger OnSerialize as well.
+        //
+        // it's important to set _all_ bits as dirty.
+        // for example, server needs to broadcast ClientToServer components.
+        // if we only set the first bit, only that SyncVar would be broadcast.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDirty() => SetSyncVarDirtyBit(ulong.MaxValue);
 
@@ -209,14 +219,14 @@ namespace Mirror
 
             // OnDirty needs to set nth bit in our dirty mask
             ulong nthBit = 1UL << index;
-            syncObject.OnDirty = () => syncObjectDirtyBits |= nthBit;
+            syncObject.OnDirty = () => SetSyncObjectDirtyBit(nthBit);
 
             // only record changes while we have observers.
             // prevents ever growing .changes lists:
             //   if a monster has no observers but we keep modifing a SyncObject,
             //   then the changes would never be flushed and keep growing,
             //   because OnSerialize isn't called without observers.
-            syncObject.IsRecording = () => netIdentity.observers?.Count > 0;
+            syncObject.IsRecording = () => netIdentity.observers.Count > 0;
         }
 
         // pass full function name to avoid ClassA.Func <-> ClassB.Func collisions
@@ -308,7 +318,29 @@ namespace Mirror
                 payload = writer.ToArraySegment()
             };
 
-            NetworkServer.SendToReadyObservers(netIdentity, message, includeOwner, channelId);
+            // serialize it to each ready observer's connection's rpc buffer.
+            // send them all at once, instead of sending one message per rpc.
+            // NetworkServer.SendToReadyObservers(netIdentity, message, includeOwner, channelId);
+
+            // safety check used to be in SendToReadyObservers. keep it for now.
+            if (netIdentity.observers != null && netIdentity.observers.Count > 0)
+            {
+                // serialize the message only once
+                using (NetworkWriterPooled serialized = NetworkWriterPool.Get())
+                {
+                    serialized.Write(message);
+
+                    // add to every observer's connection's rpc buffer
+                    foreach (NetworkConnectionToClient conn in netIdentity.observers.Values)
+                    {
+                        bool isOwner = conn == netIdentity.connectionToClient;
+                        if ((!isOwner || includeOwner) && conn.isReady)
+                        {
+                            conn.BufferRpc(message, channelId);
+                        }
+                    }
+                }
+            }
         }
 
         // pass full function name to avoid ClassA.Func <-> ClassB.Func collisions
@@ -340,7 +372,7 @@ namespace Mirror
             }
 
             // TODO change conn type to NetworkConnectionToClient to begin with.
-            if (!(conn is NetworkConnectionToClient))
+            if (!(conn is NetworkConnectionToClient connToClient))
             {
                 Debug.LogError($"TargetRPC {functionFullName} called on {name} requires a NetworkConnectionToClient but was given {conn.GetType().Name}", gameObject);
                 return;
@@ -357,7 +389,10 @@ namespace Mirror
                 payload = writer.ToArraySegment()
             };
 
-            conn.Send(message, channelId);
+            // serialize it to the connection's rpc buffer.
+            // send them all at once, instead of sending one message per rpc.
+            // conn.Send(message, channelId);
+            connToClient.BufferRpc(message, channelId);
         }
 
         // move the [SyncVar] generated property's .set into C# to avoid much IL
